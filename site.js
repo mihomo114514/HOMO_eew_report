@@ -187,7 +187,8 @@ async function renderEvent() {
   document.title = `${t?.location || id} · HOMO_eew 推算紀錄`;
   title.textContent = t?.location || `事件 ${id}`;
   document.getElementById('meta').textContent = `事件代號 ${id}・第一個觸發 ${fmtTime(ev.firstTriggerMs)}・共 ${reps.length} 報${ev.cancelled ? '・已取消' : ''}`
-    + (ev.rebuilt ? '・事後重算（用目前版本的程式，拿當時存下的測站資料重算，不是當時即時發出的結果）' : '');
+    + (ev.algo?.version ? `・推算版本 ${ev.algo.version}` : '')
+    + (ev.rebuilt ? '・事後重算（用這個版本的程式，拿當時存下的測站資料重算，不是當時即時發出的結果）' : '');
 
   const st = await stations();
   const top = (ev.topStations || []).map(([id, pga]) => ({ id, pga, info: st.get(id) }));

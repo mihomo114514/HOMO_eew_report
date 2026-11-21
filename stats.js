@@ -284,6 +284,22 @@ function scatter(hostId, tableId, evs, { get, bins, unit, label, digits }) {
   }));
 }
 
+async function renderVersions() {
+  let list = [];
+  try { list = (await getJson('data/versions.json')) || []; } catch { /* 還沒有 */ }
+  list.sort((a, b) => String(b.version).localeCompare(String(a.version), undefined, { numeric: true }));
+  const km1 = (v) => (Number.isFinite(v) ? `${v.toFixed(1)} km` : '—');
+  document.getElementById('t-ver').replaceChildren(...(list.length ? list.map((v) => el('tr', {},
+    el('td', { text: v.version }), el('td', { text: v.date || '—' }), el('td', { class: 'r', text: String(v.events ?? '—') }),
+    el('td', { class: 'r', text: km1(v.epi5Med) }), el('td', { class: 'r', text: km1(v.epi10Med) }), el('td', { class: 'r', text: km1(v.epi20Med) }),
+    el('td', { class: 'r', text: km1(v.epiMed) }), el('td', { class: 'r', text: km1(v.epiP90) }),
+    el('td', { class: 'r', text: Number.isFinite(v.within10) ? `${Math.round(v.within10 * 100)}%` : '—' }),
+    el('td', { class: 'r', text: km1(v.depthAbsMed) }),
+    el('td', { class: 'r', text: Number.isFinite(v.magBiasMed) ? `${v.magBiasMed > 0 ? '+' : ''}${v.magBiasMed.toFixed(2)}` : '—' }),
+    el('td', { class: 'r', text: Number.isFinite(v.firstReportMed) ? `${v.firstReportMed.toFixed(0)} 秒` : '—' })))
+    : [el('tr', {}, el('td', { colspan: '12', class: 'muted', text: '還沒有版本成績' }))]));
+}
+
 async function renderAll(all) {
   const evs = filtered(all);
   document.getElementById('n').textContent = `納入 ${evs.length} 場`;
@@ -303,6 +319,7 @@ async function renderAll(all) {
   const ys = document.getElementById('f-year');
   ys.replaceChildren(el('option', { value: '', text: '全部' }), ...[...years].reverse().map((y) => el('option', { value: y, text: y })));
   setupMapInteraction();
+  renderVersions();
   let all = [];
   const reload = async () => { all = await loadEvents(ys.value); document.getElementById('status').textContent = ''; await renderAll(all); };
   ys.addEventListener('change', reload);

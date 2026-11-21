@@ -13,6 +13,8 @@
   --ref: #8a8983;
   --link: #1f63b5;
   --row-hover: #eeeeea;
+  --status-good: #2e7d32;
+  --status-bad: #c62828;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -29,6 +31,8 @@
     --ref: #9a998f;
     --link: #6aa7f0;
     --row-hover: #232321;
+    --status-good: #6cc070;
+    --status-bad: #ef6f6f;
   }
 }
 :root[data-theme="dark"] {
@@ -45,6 +49,8 @@
   --ref: #9a998f;
   --link: #6aa7f0;
   --row-hover: #232321;
+  --status-good: #6cc070;
+  --status-bad: #ef6f6f;
 }
 
 * { box-sizing: border-box; }
@@ -83,7 +89,15 @@ th, td { padding: 6px 10px; text-align: left; white-space: nowrap; border-bottom
 th { font-weight: 600; color: var(--text-secondary); font-size: 12px; }
 tbody tr:hover { background: var(--row-hover); }
 td.r, th.r { text-align: right; }
-.tag { display: inline-block; font-size: 11px; padding: 0 6px; border-radius: 4px; border: 1px solid var(--border); color: var(--text-muted); }
+.tag { display: inline-block; font-size: 11px; padding: 0 6px; border-radius: 4px; border: 1px solid var(--border); color: var(--text-muted); margin-right: 4px; }
+.tag.real { color: var(--status-good); border-color: var(--status-good); }
+.tag.fake { color: var(--status-bad); border-color: var(--status-bad); }
+.list-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.list-tools .year-tabs { margin-bottom: 0; }
+.list-tools select { font: inherit; padding: 3px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface-1); color: var(--text-primary); }
+.verify { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; margin-bottom: 12px; padding: 10px 12px; }
+.verify .tag { font-size: 13px; padding: 1px 8px; }
+.verify .why { color: var(--text-secondary); font-size: 13px; }
 
 /* 事件頁 */
 .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 12px 0 16px; }

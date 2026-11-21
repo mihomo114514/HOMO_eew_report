@@ -13,7 +13,7 @@ async function loadEvents(year) {
   const ys = year ? [year] : years;
   const out = [];
   for (const y of ys) {
-    const list = ((await getJson(`data/${y}/index.json`)) || []).filter((e) => e.truth && !e.hidden);
+    const list = ((await getJson(`data/${y}/index.json`)) || []).filter((e) => e.truth && !e.hidden && e.label !== 'fake');
     const missing = list.filter((e) => !eventCache.has(e.eventId));
     let done = 0;
     // 一次抓 8 個

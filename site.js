@@ -102,6 +102,20 @@ function lineChart(host, { points, truth, truthLabel, refClass = 'truth-line', y
   host.append(root);
 }
 
+// ── 驗證 ──
+// 人工標籤（網站管理設定，index 的 label：real／fake）優先；沒標籤時，有中央氣象署報告的算真地震
+function verdictOf(e) {
+  if (e.label === 'real' || e.label === 'fake') return { v: e.label, manual: true };
+  if (e.truth) return { v: 'real', manual: false };
+  return { v: 'none', manual: false };
+}
+function verdictTag(e) {
+  const { v, manual } = verdictOf(e);
+  if (v === 'real') return el('span', { class: 'tag real', title: manual ? '人工確認是真的地震' : '中央氣象署有這個地震的報告', text: manual ? '真地震' : '真地震（中央氣象署）' });
+  if (v === 'fake') return el('span', { class: 'tag fake', title: '人工確認不是地震（雜訊、遠方大地震誤判等）', text: '假事件' });
+  return el('span', { class: 'tag', title: '沒有中央氣象署報告，也還沒人工確認', text: '未驗證' });
+}
+
 // ── 首頁 ──
 async function renderIndex() {
   const tabs = document.getElementById('years');
@@ -117,6 +131,8 @@ async function renderIndex() {
     try { list = await getJson(`data/${year}/index.json`); } catch (e) { status.textContent = String(e.message); return; }
     // 管理介面隱藏的事件（hidden: true）不列出；檔案還在，網址直接開仍看得到
     list = list.filter((e) => !e.hidden);
+    const want = document.getElementById('f-verdict').value;
+    if (want) list = list.filter((e) => verdictOf(e).v === want);
     list.sort((a, b) => (b.firstTriggerMs ?? 0) - (a.firstTriggerMs ?? 0));
     body.replaceChildren(...list.map((ev) => {
       const f = ev.final || {}; const t = ev.truth;
@@ -130,19 +146,22 @@ async function renderIndex() {
         el('td', { class: 'r', text: String(ev.reports ?? '—') }),
         el('td', { class: 'r', text: t ? `M ${fix(t.magnitude)}・${fix(t.depth)} km` : '' }, t ? null : el('span', { class: 'tag', text: '無中央氣象署報告' })),
         el('td', { class: 'r', text: err === null ? '—' : `${fix(err)} km` }),
+        el('td', {}, verdictTag(ev)),
         el('td', {}, ev.cancelled ? el('span', { class: 'tag', text: '已取消' }) : null,
           ev.rebuilt ? el('span', { class: 'tag', title: '用目前版本的程式，拿當時存下的測站資料事後重算；不是當時即時發出的結果', text: '事後重算' }) : null)
       );
     }));
-    status.textContent = list.length ? `${year} 年共 ${list.length} 場` : `${year} 年還沒有事件`;
+    status.textContent = list.length ? `${year} 年共 ${list.length} 場` : (want ? `${year} 年沒有符合的事件` : `${year} 年還沒有事件`);
   };
+  let current = null;
+  document.getElementById('f-verdict').addEventListener('change', () => current && show(current));
   tabs.replaceChildren(...years.map((y) => {
     const b = el('button', { type: 'button', text: y, 'aria-pressed': 'false' });
     b.dataset.year = y;
-    b.addEventListener('click', () => show(y));
+    b.addEventListener('click', () => { current = y; show(y); });
     return b;
   }));
-  if (years.length) show(years[0]);
+  if (years.length) { current = years[0]; show(years[0]); }
 }
 
 // ── 事件頁 ──
@@ -189,6 +208,18 @@ async function renderEvent() {
   document.getElementById('meta').textContent = `事件代號 ${id}・第一個觸發 ${fmtTime(ev.firstTriggerMs)}・共 ${reps.length} 報${ev.cancelled ? '・已取消' : ''}`
     + (ev.algo?.version ? `・推算版本 ${ev.algo.version}` : '')
     + (ev.rebuilt ? '・事後重算（用這個版本的程式，拿當時存下的測站資料重算，不是當時即時發出的結果）' : '');
+
+  // 驗證狀態：標籤在年份索引裡（網站管理設定）
+  let entry = null;
+  try { entry = ((await getJson(`data/${year}/index.json`)) || []).find((e) => e.eventId === id) || null; } catch { /* 沒索引就只看真值 */ }
+  const vbox = document.getElementById('verify');
+  const { v, manual } = verdictOf({ ...(entry || {}), truth: t });
+  const why = v === 'fake' ? '人工確認：這不是地震（雜訊、遠方大地震誤判等），推算結果不用看。'
+    : v === 'real' && manual ? '人工確認：這是真的地震。' + (t ? '' : '中央氣象署沒有發報告（通常是規模小）。')
+    : v === 'real' ? '中央氣象署有這個地震的報告，下面拿它當真值比對。'
+    : '沒有中央氣象署報告，也還沒人工確認是不是真的地震。';
+  vbox.replaceChildren(el('strong', { text: '驗證' }), verdictTag({ ...(entry || {}), truth: t }), el('span', { class: 'why', text: why }));
+  vbox.hidden = false;
 
   const st = await stations();
   const top = (ev.topStations || []).map(([id, pga]) => ({ id, pga, info: st.get(id) }));

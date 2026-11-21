@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HOMO_eew 報告</title>
+  <link rel="stylesheet" href="site.css" />
+</head>
+<body>
+  <main>
+    <header class="site">
+      <h1>HOMO_eew 地震偵測報告</h1>
+      <span class="muted">P-Alert 測站・自動推算・僅供參考，請以中央氣象署資訊為準</span>
+    </header>
+    <div class="year-tabs" id="years" role="group" aria-label="年份"></div>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>發震時間（推算）</th><th>震央</th><th class="r">規模</th><th class="r">深度</th><th class="r">報數</th>
+              <th class="r">中央氣象署</th><th class="r">震央誤差</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <p class="note" id="status">載入中…</p>
+    </div>
+  </main>
+  <div class="tooltip" id="tooltip"></div>
+  <script src="site.js"></script>
+  <script>renderIndex();</script>
+</body>
+</html>

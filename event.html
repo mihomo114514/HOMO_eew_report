@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>事件報告 · HOMO_eew 報告</title>
+  <link rel="stylesheet" href="site.css" />
+</head>
+<body>
+  <main>
+    <header class="site">
+      <div>
+        <h1 id="title">載入中…</h1>
+        <div class="muted" id="meta"></div>
+      </div>
+      <a href="./">← 所有事件</a>
+    </header>
+    <div class="summary" id="summary"></div>
+
+    <h2 style="font-size:16px;margin:0 0 6px">精度收斂（逐報估計 vs 中央氣象署）</h2>
+    <div class="legend-inline">
+      <span class="key"><span class="swatch-line"></span>逐報估計</span>
+      <span class="key"><span class="swatch-truth"></span>中央氣象署</span>
+      <span class="key"><span class="swatch-hollow"></span>規模低精度（S 波已過的站不到 3 站）</span>
+    </div>
+    <div class="charts">
+      <section class="card chart"><h2>震央誤差</h2><p class="desc">逐報震央離中央氣象署震央的距離，越接近 0 越準</p><div id="c-epi"></div></section>
+      <section class="card chart"><h2>規模</h2><p class="desc">逐報規模與中央氣象署規模</p><div id="c-mag"></div></section>
+      <section class="card chart"><h2>深度</h2><p class="desc">逐報深度與中央氣象署深度</p><div id="c-depth"></div></section>
+      <section class="card chart"><h2>觸發站數</h2><p class="desc">每一報納入事件的測站數</p><div id="c-st"></div></section>
+    </div>
+
+    <section class="card">
+      <h2 style="font-size:14px;margin:0 0 8px">逐報明細</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>報</th><th class="r">觸發後 s</th><th class="r">發震後 s</th><th>震央</th><th class="r">震央誤差 km</th>
+              <th class="r">深度 km</th><th class="r">規模</th><th class="r">站數</th><th class="r">P/S/O</th><th>品質</th><th class="r">最大 PGA gal</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <p class="note">HOMO_eew 自動推算結果，未經人工確認，僅供參考；實際結果以中央氣象署發布為準。</p>
+    </section>
+  </main>
+  <div class="tooltip" id="tooltip"></div>
+  <script src="site.js"></script>
+  <script>renderEvent();</script>
+</body>
+</html>

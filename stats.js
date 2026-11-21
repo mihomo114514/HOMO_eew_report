@@ -161,10 +161,17 @@ const proj = ([lng, lat]) => [(lng - 120) * KX * 100, (25.6 - lat) * 100]; // 1�
 const HOME = { x: -60, y: -40, w: 380, h: 560 }; // 全台
 let view = { ...HOME };
 let mapSvg = null;
+// 點與 × 以螢幕大小為準（不跟著地圖等比放大）：放大時只稍微變大，縮小時不會擠成一團
+let marks = [];
 
 function setView(v) {
   view = v;
   mapSvg?.setAttribute('viewBox', `${v.x} ${v.y} ${v.w} ${v.h}`);
+  const px = document.getElementById('map')?.getBoundingClientRect().width || 1;
+  const unitPerPx = v.w / px;
+  const zoom = HOME.w / v.w; // 1 = 全台
+  const sizePx = Math.min(7, Math.max(3, 3.2 + Math.log2(Math.max(zoom, 1)) * 0.9));
+  for (const m of marks) m.node.setAttribute('transform', `translate(${m.x} ${m.y}) scale(${(sizePx * unitPerPx).toFixed(4)})`);
 }
 function fitHome() {
   const box = document.getElementById('map').getBoundingClientRect();
@@ -177,15 +184,19 @@ function renderMap(evs) {
   const host = document.getElementById('map');
   mapSvg = svg('svg', { preserveAspectRatio: 'xMidYMid meet' });
   const g = svg('g');
+  marks = [];
   if (coast) for (const line of coast) g.append(svg('path', { class: 'coast', d: line.map((p, i) => { const [x, y] = proj(p); return `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`; }).join('') }));
   for (const ev of evs) {
     const f = finalOf(ev); const t = ev.truth;
     const [tx, ty] = proj([t.lng, t.lat]); const [fx, fy] = proj([f.lng, f.lat]);
     const color = depthColor(t.depth);
     g.append(svg('line', { class: 'off', x1: tx, y1: ty, x2: fx, y2: fy, stroke: color }));
-    const s = 1.6;
-    g.append(svg('path', { class: 'truth-x', d: `M${tx - s},${ty - s}L${tx + s},${ty + s}M${tx - s},${ty + s}L${tx + s},${ty - s}` }));
-    const dot = svg('circle', { class: 'ev-dot', cx: fx, cy: fy, r: 2.6, fill: color });
+    // ×、● 都畫在原點、單位大小，由 setView 依縮放設定 transform
+    const x = svg('path', { class: 'truth-x', d: 'M-0.7,-0.7L0.7,0.7M-0.7,0.7L0.7,-0.7' });
+    g.append(x);
+    marks.push({ node: x, x: tx, y: ty });
+    const dot = svg('circle', { class: 'ev-dot', cx: 0, cy: 0, r: 1, fill: color });
+    marks.push({ node: dot, x: fx, y: fy });
     hover(dot, `${t.location || ''} ${fmtTime(t.originMs)}\n中央氣象署 M${fix(t.magnitude)}・${fix(t.depth)} km\n我們 M${fix(f.magnitude)}・${Math.round(f.depth)} km・震央差 ${fix(km(f.lat, f.lng, t.lat, t.lng))} km`);
     dot.addEventListener('click', () => { location.href = `event.html?y=${encodeURIComponent(ev.year)}&id=${encodeURIComponent(ev.eventId)}`; });
     g.append(dot);

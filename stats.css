@@ -1,0 +1,48 @@
+/* 統計頁 */
+:root { --series-2: #eb6834; --depth-1: #9cc3ef; --depth-2: #2a78d6; --depth-3: #0e3f7d; --coast: #9a998f; --truth-mark: #52514e; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --series-2: #d95926; --depth-1: #a9cdf6; --depth-2: #3987e5; --depth-3: #1d5fb8; --coast: #5f5e58; --truth-mark: #c3c2b7; }
+}
+:root[data-theme="dark"] { --series-2: #d95926; --depth-1: #a9cdf6; --depth-2: #3987e5; --depth-3: #1d5fb8; --coast: #5f5e58; --truth-mark: #c3c2b7; }
+
+.filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 6px; }
+.filters label { font-size: 13px; color: var(--text-secondary); display: inline-flex; gap: 6px; align-items: center; }
+.filters select { font: inherit; padding: 3px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface-1); color: var(--text-primary); }
+.spacer { flex: 1; }
+.block { margin: 12px 0; }
+.block h2 { font-size: 15px; margin: 0 0 2px; }
+.block .desc { font-size: 12px; color: var(--text-muted); margin: 0 0 8px; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(440px, 100%), 1fr)); gap: 12px; }
+.grid2 .block { margin: 0; }
+.grid2 { margin: 12px 0; }
+.block svg { width: 100%; height: auto; display: block; overflow: visible; }
+.sw { display: inline-block; width: 18px; height: 0; border-top: 2px solid; }
+.sw-1 { border-color: var(--series-1); }
+.sw-2 { border-color: var(--series-2); }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
+.line-2 { fill: none; stroke: var(--series-2); stroke-width: 2; stroke-linejoin: round; }
+.dot-2 { fill: var(--series-2); stroke: var(--surface-1); stroke-width: 2; }
+.bar { fill: var(--series-1); }
+.bar:hover { opacity: 0.8; }
+.bar-label { fill: var(--text-secondary); font-size: 11px; }
+.diag { stroke: var(--text-muted); stroke-width: 1; stroke-dasharray: 4 4; }
+.scatter-dot { fill: var(--series-1); fill-opacity: 0.55; stroke: var(--surface-1); stroke-width: 1; }
+.scatter-dot:hover { fill-opacity: 1; }
+
+/* 地圖 */
+.map-wrap { position: relative; }
+#map { height: 520px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; touch-action: none; cursor: grab; background: var(--surface-0); }
+#map.dragging { cursor: grabbing; }
+#map svg { width: 100%; height: 100%; display: block; }
+.coast { fill: none; stroke: var(--coast); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.off { stroke-width: 1.2; vector-effect: non-scaling-stroke; stroke-opacity: 0.8; }
+.truth-x { stroke: var(--truth-mark); stroke-width: 1.2; vector-effect: non-scaling-stroke; }
+.ev-dot { stroke: var(--surface-1); stroke-width: 1; vector-effect: non-scaling-stroke; cursor: pointer; }
+.map-reset {
+  position: absolute; top: 8px; right: 8px; font: inherit; font-size: 12px; padding: 3px 10px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface-1); color: var(--text-secondary);
+}
+.card-inset { margin-top: 10px; font-size: 13px; color: var(--text-secondary); }
+@media (max-width: 520px) { #map { height: 380px; } }
+
+.truth-legend { color: var(--truth-mark); font-weight: 700; }

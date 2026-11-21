@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>統計 · HOMO_eew 推算紀錄</title>
+  <link rel="stylesheet" href="site.css?v=mwqk821y" />
+  <link rel="stylesheet" href="stats.css?v=mwqk821y" />
+</head>
+<body>
+  <main>
+    <header class="site">
+      <div>
+        <h1>統計</h1>
+        <div class="muted">只算對得到中央氣象署報告的事件；推算結果與中央氣象署的震央、規模、深度相比</div>
+      </div>
+      <a href="./">← 所有事件</a>
+    </header>
+
+    <div class="card filters">
+      <label>年份 <select id="f-year"></select></label>
+      <label>來源 <select id="f-src"><option value="">全部</option><option value="live">即時</option><option value="rebuilt">事後重算</option></select></label>
+      <label>規模 <select id="f-mag"><option value="">全部</option><option value="0-3.5">M3.5 以下</option><option value="3.5-4.5">M3.5–4.5</option><option value="4.5-5.5">M4.5–5.5</option><option value="5.5-10">M5.5 以上</option></select></label>
+      <label>深度 <select id="f-depth"><option value="">全部</option><option value="0-40">淺（&lt; 40 km）</option><option value="40-80">中（40–80 km）</option><option value="80-999">深（≥ 80 km）</option></select></label>
+      <span class="spacer"></span>
+      <strong id="n"></strong>
+    </div>
+    <p class="note" id="status">載入中…</p>
+
+    <section class="card block">
+      <h2>隨時間的震央精度</h2>
+      <p class="desc">第一個觸發後經過幾秒時，當下那一報的震央離中央氣象署多遠。看得出推算多快變準。</p>
+      <div class="legend-inline"><span class="key"><span class="sw sw-1"></span>中位數</span><span class="key"><span class="sw sw-2"></span>p90（九成的事件在這以內）</span></div>
+      <div id="c-time"></div>
+      <div class="table-wrap"><table><thead><tr><th>時間點</th><th class="r">已有報</th><th class="r">中位數 km</th><th class="r">p90 km</th><th class="r">10 km 內</th><th class="r">20 km 內</th></tr></thead><tbody id="t-time"></tbody></table></div>
+    </section>
+
+    <div class="grid2">
+      <section class="card block">
+        <h2>最終報震央誤差分布</h2>
+        <p class="desc" id="d-hist"></p>
+        <div id="c-hist"></div>
+      </section>
+      <section class="card block">
+        <h2>速度</h2>
+        <p class="desc">第一報在中央氣象署發震時間之後幾秒發出</p>
+        <div id="c-speed"></div>
+        <p class="note" id="d-speed"></p>
+      </section>
+    </div>
+
+    <section class="card block">
+      <h2>偏移地圖</h2>
+      <p class="desc">每場從中央氣象署震央（×）畫到我們最終報震央（●）的箭頭，顏色是中央氣象署深度。可拖曳、滾輪或雙指縮放；點事件開啟該場。</p>
+      <div class="legend-inline" id="legend-depth"></div>
+      <div class="map-wrap">
+        <div id="map"></div>
+        <button class="map-reset" id="map-reset" type="button">回到全台</button>
+      </div>
+      <div class="pull card-inset" id="pull"></div>
+    </section>
+
+    <div class="grid2">
+      <section class="card block">
+        <h2>規模對照</h2>
+        <p class="desc">橫軸中央氣象署、縱軸我們的最終報；斜線上代表一樣</p>
+        <div id="c-mag"></div>
+        <div class="table-wrap"><table><thead><tr><th>中央氣象署規模</th><th class="r">場數</th><th class="r">偏差中位數</th><th class="r">|偏差| p90</th></tr></thead><tbody id="t-mag"></tbody></table></div>
+      </section>
+      <section class="card block">
+        <h2>深度對照</h2>
+        <p class="desc">橫軸中央氣象署、縱軸我們的最終報（km）</p>
+        <div id="c-depth"></div>
+        <div class="table-wrap"><table><thead><tr><th>中央氣象署深度</th><th class="r">場數</th><th class="r">偏差中位數 km</th><th class="r">|偏差| p90 km</th></tr></thead><tbody id="t-depth"></tbody></table></div>
+      </section>
+    </div>
+    <p class="note">以上是程式自動推算的結果與中央氣象署公布值的比較，沒有人工檢查；地震資訊請以中央氣象署公布的為準。</p>
+  </main>
+  <div class="tooltip" id="tooltip"></div>
+  <script src="site.js?v=mwqk821y"></script>
+  <script src="stats.js?v=mwqk821y"></script>
+</body>
+</html>

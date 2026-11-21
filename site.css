@@ -1,4 +1,4 @@
-/* HOMO_eew 報告網站（GitHub Pages）。顏色都是 token，深色模式另外選過（dataviz 參考調色盤：series-1 藍、真值紅） */
+/* HOMO_eew 推算紀錄網站（GitHub Pages）。顏色都是 token，深色模式另外選過（dataviz 參考調色盤：series-1 藍、真值紅） */
 :root {
   color-scheme: light;
   --surface-0: #f4f4f2;
@@ -10,6 +10,7 @@
   --text-muted: #77766f;
   --series-1: #2a78d6;
   --truth: #e34948;
+  --ref: #8a8983;
   --link: #1f63b5;
   --row-hover: #eeeeea;
 }
@@ -25,6 +26,7 @@
     --text-muted: #8f8e86;
     --series-1: #3987e5;
     --truth: #e66767;
+    --ref: #9a998f;
     --link: #6aa7f0;
     --row-hover: #232321;
   }
@@ -40,6 +42,7 @@
   --text-muted: #8f8e86;
   --series-1: #3987e5;
   --truth: #e66767;
+  --ref: #9a998f;
   --link: #6aa7f0;
   --row-hover: #232321;
 }
@@ -99,6 +102,10 @@ td.r, th.r { text-align: right; }
 .series-dot { fill: var(--series-1); stroke: var(--surface-1); stroke-width: 2; }
 .series-dot.low { fill: var(--surface-1); stroke: var(--series-1); stroke-width: 2; }
 .truth-line { stroke: var(--truth); stroke-width: 1.5; stroke-dasharray: 5 4; }
+/* 沒有中央氣象署報告：參考線是最終報（灰），跟真值的紅分開 */
+.ref-line { stroke: var(--ref); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.legend-inline .swatch-ref { width: 18px; height: 0; border-top: 2px dashed var(--ref); }
+.badge { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-secondary); margin-left: 8px; vertical-align: middle; }
 .truth-label { fill: var(--text-secondary); font-size: 11px; }
 .end-label { fill: var(--text-primary); font-size: 11px; font-weight: 600; }
 .crosshair { stroke: var(--text-muted); stroke-width: 1; stroke-dasharray: 2 3; }

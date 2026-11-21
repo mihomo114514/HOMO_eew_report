@@ -1,4 +1,4 @@
-// HOMO_eew 報告網站：讀 data/ 的 JSON（HOMO_eew 程式上傳），畫事件列表與精度收斂圖。不用任何外部函式庫。
+// HOMO_eew 推算紀錄網站：讀 data/ 的 JSON（HOMO_eew 程式上傳），列出事件、和中央氣象署對照、每一報。不用任何外部函式庫。
 // 資料：data/years.json = ["2026", …]；data/{年}/index.json = 事件摘要陣列；data/{年}/{事件代號}.json = 事件記錄（homo-sidecar records.rs）
 
 const TZ_OFFSET_MS = 8 * 3600 * 1000;
@@ -45,7 +45,7 @@ function niceTicks(min, max, count = 5) {
 }
 
 // 單一序列折線圖：points = [{x, y, low, label}]；truth = 真值（水平虛線）或 null
-function lineChart(host, { points, truth, truthLabel, yUnit, yMin, yFloorSpan = 1, xUnit = 's' }) {
+function lineChart(host, { points, truth, truthLabel, refClass = 'truth-line', yUnit, yMin, yFloorSpan = 1, xUnit = 's' }) {
   host.replaceChildren();
   const pts = points.filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
   if (!pts.length) {
@@ -74,7 +74,7 @@ function lineChart(host, { points, truth, truthLabel, yUnit, yMin, yFloorSpan = 
   const yl = svg('text', { x: m.l - 6, y: m.t - 2, 'text-anchor': 'end' }); yl.textContent = yUnit; axis.append(yl);
   root.append(grid, axis);
   if (Number.isFinite(truth)) {
-    root.append(svg('line', { class: 'truth-line', x1: m.l, x2: W - m.r, y1: Y(truth), y2: Y(truth) }));
+    root.append(svg('line', { class: refClass, x1: m.l, x2: W - m.r, y1: Y(truth), y2: Y(truth) }));
     const t = svg('text', { class: 'truth-label', x: W - m.r + 4, y: Y(truth) + 4 }); t.textContent = truthLabel; root.append(t);
   }
   root.append(svg('path', { class: 'series-line', d: pts.map((p, i) => `${i ? 'L' : 'M'}${X(p.x).toFixed(1)},${Y(p.y).toFixed(1)}`).join('') }));
@@ -115,6 +115,8 @@ async function renderIndex() {
     status.textContent = '載入中…';
     let list = [];
     try { list = await getJson(`data/${year}/index.json`); } catch (e) { status.textContent = String(e.message); return; }
+    // 管理介面隱藏的事件（hidden: true）不列出；檔案還在，網址直接開仍看得到
+    list = list.filter((e) => !e.hidden);
     list.sort((a, b) => (b.firstTriggerMs ?? 0) - (a.firstTriggerMs ?? 0));
     body.replaceChildren(...list.map((ev) => {
       const f = ev.final || {}; const t = ev.truth;
@@ -126,7 +128,7 @@ async function renderIndex() {
         el('td', { class: 'r', text: Number.isFinite(f.magnitude) ? `M ${fix(f.magnitude)}` : '—' }),
         el('td', { class: 'r', text: Number.isFinite(f.depth) ? `${Math.round(f.depth)} km` : '—' }),
         el('td', { class: 'r', text: String(ev.reports ?? '—') }),
-        el('td', { class: 'r', text: t ? `M ${fix(t.magnitude)}・${fix(t.depth, 0)} km` : '' }, t ? null : el('span', { class: 'tag', text: '無中央氣象署報告' })),
+        el('td', { class: 'r', text: t ? `M ${fix(t.magnitude)}・${fix(t.depth)} km` : '' }, t ? null : el('span', { class: 'tag', text: '無中央氣象署報告' })),
         el('td', { class: 'r', text: err === null ? '—' : `${fix(err)} km` }),
         el('td', {}, ev.cancelled ? el('span', { class: 'tag', text: '已取消' }) : null,
           ev.rebuilt ? el('span', { class: 'tag', title: '用目前版本的程式，拿當時存下的測站資料事後重算；不是當時即時發出的結果', text: '事後重算' }) : null)
@@ -144,6 +146,34 @@ async function renderIndex() {
 }
 
 // ── 事件頁 ──
+// PGA → 震度（與程式 intensityLabelForPga 相同）
+function intensityOf(pga) {
+  const v = Number(pga) || 0;
+  const steps = [[0.8, '0'], [2.5, '1'], [8, '2'], [25, '3'], [80, '4'], [140, '5弱'], [250, '5強'], [400, '6弱'], [800, '6強']];
+  for (const [lim, label] of steps) if (v < lim) return label;
+  return '7';
+}
+
+// 穩定度：從第幾報起，之後每一報都在最終報附近（震央 5 km、深度 10 km、規模 0.3 內）。回傳那一報（沒有就 null）
+const STABLE = { km: 5, depth: 10, mag: 0.3 };
+function stableFrom(reps, fin) {
+  const near = (r) => km(r.lat, r.lng, fin.lat, fin.lng) <= STABLE.km && Math.abs(r.depth - fin.depth) <= STABLE.depth
+    && (!Number.isFinite(fin.magnitude) || !Number.isFinite(r.magnitude) || Math.abs(r.magnitude - fin.magnitude) <= STABLE.mag);
+  let k = reps.length;
+  while (k > 0 && near(reps[k - 1])) k -= 1;
+  return k < reps.length ? reps[k] : null;
+}
+
+// 測站表（stations.json：[[代號, 縣市, 站名, 緯度, 經度], …]）
+let stationTable = null;
+async function stations() {
+  if (!stationTable) {
+    try { stationTable = new Map((await getJson('stations.json')).map(([id, area, name, lat, lon]) => [id, { area, name, lat, lon }])); }
+    catch { stationTable = new Map(); }
+  }
+  return stationTable;
+}
+
 async function renderEvent() {
   const q = new URLSearchParams(location.search);
   const year = q.get('y'); const id = q.get('id');
@@ -154,55 +184,107 @@ async function renderEvent() {
   const reps = ev.reports || [];
   const fin = [...reps].reverse().find((r) => r.kind !== 'report') || reps[reps.length - 1] || {};
   const t = ev.truth;
-  document.title = `${t?.location || id} · HOMO_eew 報告`;
+  document.title = `${t?.location || id} · HOMO_eew 推算紀錄`;
   title.textContent = t?.location || `事件 ${id}`;
   document.getElementById('meta').textContent = `事件代號 ${id}・第一個觸發 ${fmtTime(ev.firstTriggerMs)}・共 ${reps.length} 報${ev.cancelled ? '・已取消' : ''}`
     + (ev.rebuilt ? '・事後重算（用目前版本的程式，拿當時存下的測站資料重算，不是當時即時發出的結果）' : '');
 
-  // 摘要：最終報 vs 中央氣象署
+  const st = await stations();
+  const top = (ev.topStations || []).map(([id, pga]) => ({ id, pga, info: st.get(id) }));
+  const dist = (x) => (x.info ? km(fin.lat, fin.lng, x.info.lat, x.info.lon) : NaN);
+  const nearest = top.map(dist).filter(Number.isFinite).reduce((a, b) => Math.min(a, b), Infinity);
+  const maxSt = top[0];
+  // 沒有中央氣象署地名：用最近觸發站的縣市當標題（標明是推算）
+  if (!t) {
+    const near = top.filter((x) => x.info).sort((a, b) => dist(a) - dist(b))[0];
+    const place = near ? `${near.info.area}附近（推算）` : '推算震央';
+    title.textContent = place;
+    document.title = `${place} · HOMO_eew 推算紀錄`;
+  }
+  const stable = stableFrom(reps, fin);
+  const stableText = stable ? `第 ${stable.report} 報` : '—';
+  const stableSub = stable ? `觸發後 ${fix(stable.sinceFirstS, 0)} 秒起，之後都在最終報附近` : '';
+
+  // 摘要
   const stat = (label, value, sub) => el('div', { class: 'card stat' }, el('div', { class: 'label', text: label }), el('div', { class: 'value', text: value }), el('div', { class: 'sub', text: sub }));
   const first = reps[0] || {};
   const summary = document.getElementById('summary');
-  summary.replaceChildren(
-    stat('震央誤差（最終報）', t && Number.isFinite(fin.lat) ? `${fix(km(fin.lat, fin.lng, t.lat, t.lng))} km` : '—', `${fix(fin.lat, 2)}, ${fix(fin.lng, 2)}${t ? `｜CWA ${fix(t.lat, 2)}, ${fix(t.lng, 2)}` : ''}`),
-    stat('規模（最終報）', Number.isFinite(fin.magnitude) ? `M ${fix(fin.magnitude)}` : '—', t ? `CWA M ${fix(t.magnitude)}（差 ${fix(fin.magnitude - t.magnitude)}）` : '無中央氣象署報告'),
-    stat('深度（最終報）', Number.isFinite(fin.depth) ? `${Math.round(fin.depth)} km` : '—', t ? `CWA ${fix(t.depth)} km（差 ${fix(fin.depth - t.depth, 0)} km）` : ''),
-    stat('第一報', t && Number.isFinite(first.dataMs) ? `發震後 ${fix((first.dataMs - t.originMs) / 1000, 0)} 秒` : `觸發後 ${fix(first.sinceFirstS, 0)} 秒`,
-      t && Number.isFinite(first.lat) ? `震央差 ${fix(km(first.lat, first.lng, t.lat, t.lng))} km` : `${fix(first.lat, 2)}, ${fix(first.lng, 2)}`),
-    stat('發震時間', fmtTime(fin.originMs), t ? `CWA ${fmtTime(t.originMs)}（差 ${fix((fin.originMs - t.originMs) / 1000)} 秒）` : '')
-  );
+  if (t) {
+    summary.replaceChildren(
+      stat('震央誤差（最終報）', Number.isFinite(fin.lat) ? `${fix(km(fin.lat, fin.lng, t.lat, t.lng))} km` : '—', `${fix(fin.lat, 2)}, ${fix(fin.lng, 2)}｜CWA ${fix(t.lat, 2)}, ${fix(t.lng, 2)}`),
+      stat('規模（最終報）', Number.isFinite(fin.magnitude) ? `M ${fix(fin.magnitude)}` : '—', `CWA M ${fix(t.magnitude)}（差 ${fix(fin.magnitude - t.magnitude)}）`),
+      stat('深度（最終報）', Number.isFinite(fin.depth) ? `${Math.round(fin.depth)} km` : '—', `CWA ${fix(t.depth)} km（差 ${fix(fin.depth - t.depth, 0)} km）`),
+      stat('第一報', Number.isFinite(first.dataMs) ? `發震後 ${fix((first.dataMs - t.originMs) / 1000, 0)} 秒` : '—', Number.isFinite(first.lat) ? `震央差 ${fix(km(first.lat, first.lng, t.lat, t.lng))} km` : ''),
+      stat('穩定', stableText, stableSub)
+    );
+  } else {
+    summary.replaceChildren(
+      stat('最終推算', Number.isFinite(fin.magnitude) ? `M ${fix(fin.magnitude)}・${Math.round(fin.depth)} km` : `${Math.round(fin.depth)} km`, `${fix(fin.lat, 2)}, ${fix(fin.lng, 2)}・發震 ${fmtTime(fin.originMs)}`),
+      stat('穩定', stableText, stableSub),
+      stat('證據', `${fin.stations ?? '—'} 站`, `${Number.isFinite(nearest) ? `最近觸發站 ${fix(nearest)} km・` : ''}P ${fin.phaseP ?? '—'}・S ${fin.phaseS ?? '—'}`),
+      stat('最大震度', maxSt ? intensityOf(maxSt.pga) : '—', maxSt ? `${maxSt.info ? `${maxSt.info.area} ${maxSt.info.name}` : maxSt.id} ${fix(maxSt.pga)} gal` : ''),
+      stat('第一報', `觸發後 ${fix(first.sinceFirstS, 0)} 秒`, Number.isFinite(first.lat) ? `離最終報 ${fix(km(first.lat, first.lng, fin.lat, fin.lng))} km` : '')
+    );
+  }
 
-  // 精度收斂圖：x = 第一個觸發後秒數
+  // 收斂圖：只有對得到中央氣象署的事件才畫（2026-11-22 使用者：小地震不用折線圖，每報列出就好）
+  if (!t) {
+    document.getElementById('conv').hidden = true;
+    document.getElementById('th-epi').textContent = '離最終報 km';
+  }
+  // 有真值對真值（紅）；沒有真值時這段不顯示（保留對最終報的畫法，之後要再打開只改上面）
+  const ref = t || { lat: fin.lat, lng: fin.lng, depth: fin.depth, magnitude: fin.magnitude };
+  const refName = t ? 'CWA' : '最終';
+  const refClass = t ? 'truth-line' : 'ref-line';
+  if (!t) {
+    document.getElementById('conv-title').textContent = '和最終報對照';
+    const note = document.getElementById('conv-note');
+    note.hidden = false;
+    note.textContent = '這個事件沒有中央氣象署報告（通常是規模小、沒有發布），沒有真值可比；下面量的是推算多快穩定下來，不代表準確。';
+    document.getElementById('legend-ref').textContent = '最終報';
+    document.getElementById('legend-ref-swatch').className = 'swatch-ref';
+    document.getElementById('t-epi').textContent = '離最終報的距離';
+    document.getElementById('d-epi').textContent = '每一報的震央離最終報震央多遠';
+    document.getElementById('d-mag').textContent = '每一報的規模，虛線是最終報';
+    document.getElementById('d-depth').textContent = '每一報的深度，虛線是最終報';
+  }
   const label = (r, extra) => `第 ${r.report} 報${r.kind === 'final' ? '（最終）' : r.kind === 'supplement' ? '（追加）' : ''}・觸發後 ${fix(r.sinceFirstS, 0)} 秒\n${extra}`;
   const pt = (r, y, extra, low = false) => ({ x: r.sinceFirstS, y, low, label: label(r, extra) });
-  lineChart(document.getElementById('c-epi'), t
-    ? { points: reps.map((r) => { const d = km(r.lat, r.lng, t.lat, t.lng); return pt(r, d, `震央誤差 ${fix(d)} km`); }), yUnit: 'km', yMin: 0, yFloorSpan: 5 }
-    : { points: [] });
-  if (!t) document.getElementById('c-epi').replaceChildren(el('div', { class: 'empty', text: '沒有中央氣象署報告，無法計算誤差' }));
+  lineChart(document.getElementById('c-epi'), {
+    points: reps.map((r) => { const d = km(r.lat, r.lng, ref.lat, ref.lng); return pt(r, d, `${t ? '震央誤差' : '離最終報'} ${fix(d)} km`); }), yUnit: 'km', yMin: 0, yFloorSpan: 5
+  });
   lineChart(document.getElementById('c-mag'), {
     points: reps.map((r) => pt(r, r.magnitude, `M ${fix(r.magnitude)}${r.magLow ? '（低精度）' : ''}・${r.magStations ?? '—'} 站`, !!r.magLow)),
-    truth: t?.magnitude, truthLabel: t ? `CWA ${fix(t.magnitude)}` : '', yUnit: 'M', yFloorSpan: 1
+    truth: ref.magnitude, truthLabel: `${refName} ${fix(ref.magnitude)}`, refClass, yUnit: 'M', yFloorSpan: 1
   });
   lineChart(document.getElementById('c-depth'), {
     points: reps.map((r) => pt(r, r.depth, `深度 ${fix(r.depth, 0)} km`)),
-    truth: t?.depth, truthLabel: t ? `CWA ${fix(t.depth, 0)}` : '', yUnit: 'km', yMin: 0, yFloorSpan: 10
+    truth: ref.depth, truthLabel: `${refName} ${fix(ref.depth, t ? 1 : 0)}`, refClass, yUnit: 'km', yMin: 0, yFloorSpan: 10
   });
   lineChart(document.getElementById('c-st'), {
     points: reps.map((r) => pt(r, r.stations, `${r.stations} 站（P ${r.phaseP}・S ${r.phaseS}・O ${r.phaseO}）`)), yUnit: '站', yMin: 0, yFloorSpan: 5
   });
 
-  // 逐報明細
+  // 測站觀測
+  document.getElementById('st-rows').replaceChildren(...(top.length ? top.map((x) => el('tr', {},
+    el('td', { text: x.info ? `${x.info.area} ${x.info.name}` : x.id }),
+    el('td', { class: 'r', text: fix(dist(x)) }),
+    el('td', { class: 'r', text: fix(x.pga, 2) }),
+    el('td', { class: 'r', text: intensityOf(x.pga) })
+  )) : [el('tr', {}, el('td', { colspan: '4', class: 'muted', text: '這筆記錄沒有測站資料（較早的版本）' }))]));
+
+  // 每一報
   document.getElementById('rows').replaceChildren(...reps.map((r) => el('tr', {},
     el('td', { text: `${r.report}${r.kind === 'final' ? '（終）' : r.kind === 'supplement' ? `（追加 ${r.revision}）` : ''}` }),
     el('td', { class: 'r', text: fix(r.sinceFirstS, 0) }),
-    el('td', { class: 'r', text: t ? fix((r.dataMs - t.originMs) / 1000, 0) : '—' }),
+    // 發震後秒數：有中央氣象署用它的發震時間，沒有就用我們最終報的發震時間
+    el('td', { class: 'r', text: fix((r.dataMs - (t ? t.originMs : fin.originMs)) / 1000, 0) }),
     el('td', { text: `${fix(r.lat, 2)}, ${fix(r.lng, 2)}` }),
-    el('td', { class: 'r', text: t ? fix(km(r.lat, r.lng, t.lat, t.lng)) : '—' }),
+    el('td', { class: 'r', text: t ? fix(km(r.lat, r.lng, t.lat, t.lng)) : fix(km(r.lat, r.lng, fin.lat, fin.lng)) }),
     el('td', { class: 'r', text: fix(r.depth, 0) }),
     el('td', { class: 'r', text: Number.isFinite(r.magnitude) ? `${fix(r.magnitude)}${r.magLow ? '（低）' : ''}` : '—' }),
     el('td', { class: 'r', text: String(r.stations) }),
     el('td', { class: 'r', text: `${r.phaseP}/${r.phaseS}/${r.phaseO}` }),
-    el('td', { text: r.quality ?? '—' }),
     el('td', { class: 'r', text: Number.isFinite(r.maxPga) ? fix(r.maxPga) : '—' })
   )));
 }

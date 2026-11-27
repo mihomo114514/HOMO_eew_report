@@ -140,7 +140,8 @@ async function renderIndex() {
       const link = el('a', { href: `event.html?y=${encodeURIComponent(year)}&id=${encodeURIComponent(ev.eventId)}`, text: fmtTime(f.originMs ?? ev.firstTriggerMs) });
       return el('tr', {},
         el('td', {}, link),
-        el('td', { text: t ? t.location || '' : `${fix(f.lat, 2)}, ${fix(f.lng, 2)}` }),
+        // 沒有中央氣象署報告：經緯度後面加地名（程式記錄時用地圖同一套規則算好的 place；舊事件由網站管理補）
+        el('td', { text: t ? t.location || '' : `${fix(f.lat, 2)}, ${fix(f.lng, 2)}${ev.place ? `（${ev.place}）` : ''}` }),
         el('td', { class: 'r', text: Number.isFinite(f.magnitude) ? `M ${fix(f.magnitude)}` : '—' }),
         el('td', { class: 'r', text: Number.isFinite(f.depth) ? `${Math.round(f.depth)} km` : '—' }),
         el('td', { class: 'r', text: String(ev.reports ?? '—') }),
@@ -206,7 +207,7 @@ async function renderEvent() {
   document.title = `${t?.location || id} · HOMO_eew 推算紀錄`;
   title.textContent = t?.location || `事件 ${id}`;
   document.getElementById('meta').textContent = `事件代號 ${id}・第一個觸發 ${fmtTime(ev.firstTriggerMs)}・共 ${reps.length} 報${ev.cancelled ? '・已取消' : ''}`
-    + (ev.algo?.version ? `・推算版本 ${ev.algo.version}` : '')
+    + (ev.algo?.version ? `・版本 ${ev.algo.version}` : '')
     + (ev.rebuilt ? '・事後重算（用這個版本的程式，拿當時存下的測站資料重算，不是當時即時發出的結果）' : '');
 
   // 驗證狀態：標籤在年份索引裡（網站管理設定）
@@ -228,8 +229,10 @@ async function renderEvent() {
   const maxSt = top[0];
   // 沒有中央氣象署地名：用最近觸發站的縣市當標題（標明是推算）
   if (!t) {
+    // 地名：記錄裡的 place（地圖同一套規則）或索引裡補上的；都沒有才用最近觸發站的縣市
+    const named = fin.place || ev.place || entry?.place;
     const near = top.filter((x) => x.info).sort((a, b) => dist(a) - dist(b))[0];
-    const place = near ? `${near.info.area}附近（推算）` : '推算震央';
+    const place = named ? `${named}（推算）` : near ? `${near.info.area}附近（推算）` : '推算震央';
     title.textContent = place;
     document.title = `${place} · HOMO_eew 推算紀錄`;
   }

@@ -187,6 +187,12 @@ const INTENSITY_COLORS = { 1: '#0047AB', 2: '#00ACEB', 3: '#00FF00', 4: '#FFFF00
 // 中央氣象署 2020 新制 5 弱以上的 PGV 下限（cm/s）
 const CWA_PGV_THRESHOLDS = [[140, '7'], [80, '6強'], [50, '6弱'], [30, '5強'], [15, '5弱']];
 const SHAKE_COVER_QUANTILE = 0.95;
+// 單站突波：比附近測站（覆蓋半徑內）的中位數高出這麼多（log10 PGA）就當雜訊不用。
+// 中央氣象署震度每級 PGA 約差 3.2 倍（0.5 log），1.0＝高出 2 級；P-Alert 站這麼密，鄰站不可能差這麼多
+// （20250417 宜蘭近海：W02B 648 gal、鄰站約 20 gal，畫出一塊假的 6 強）。
+// 附近站太少比不了的（山區），改跟這站最近鄉鎮的 GMM 預估比，同樣高出 SPIKE_LOG 就不用
+// （同一場：新北德拉楠 999 gal、新竹花園 114 gal，該處預估都只有 1 級上下）
+const SPIKE_LOG = 1.0;
 // 地圖投影：同統計頁（1° ≈ 100 單位、經度乘 cos 23.7°）
 const SHAKE_KX = Math.cos(23.7 * Math.PI / 180);
 const shakeProj = (lng, lat) => [(lng - 120) * SHAKE_KX * 100, (25.6 - lat) * 100];
@@ -207,6 +213,17 @@ function coverRadius(points) {
   const nn = points.map((p, i) => points.reduce((m, q, j) => (i === j ? m : Math.min(m, km(p.lat, p.lng, q.lat, q.lng))), Infinity))
     .filter(Number.isFinite).sort((a, b) => a - b);
   return nn.length ? nn[Math.min(nn.length - 1, Math.floor(SHAKE_COVER_QUANTILE * nn.length))] : 0;
+}
+
+// 濾掉單站突波：附近（radius 內）至少 2 站時，比它們的中位數高出 SPIKE_LOG 以上的不用；附近沒站的照留
+// expected(lat, lng)：這個位置的預估 log10 PGA（GMM，沒有預估就回 null）
+function dropSpikes(points, radius, expected) {
+  return points.filter((p) => {
+    const near = points.filter((q) => q !== p && km(p.lat, p.lng, q.lat, q.lng) <= radius).map((q) => q.v).sort((a, b) => a - b);
+    if (near.length >= 2) return p.v - near[Math.floor(near.length / 2)] <= SPIKE_LOG;
+    const e = expected(p.lat, p.lng);
+    return e == null || p.v - e <= SPIKE_LOG;
+  });
 }
 
 // 距離平方反比內插：points = [{lat, lng, v}]；超過 radius 的點不用；全部都太遠回 null
@@ -240,8 +257,18 @@ async function renderShakeCompare(ev, fin, st) {
     labels.push({ title: '預估（GMM）', sub: `最終報 M${fix(fin.magnitude)}・${fix(fin.depth, 0)} km`, of: (i) => m.get(i) });
   }
   if (peaks.length) {
-    const pts = peaks.map((x) => ({ lat: x.s.lat, lng: x.s.lon, v: Math.log10(x.pga) }));
-    const radius = coverRadius(pts);
+    const raw = peaks.map((x) => ({ lat: x.s.lat, lng: x.s.lon, v: Math.log10(x.pga) }));
+    const radius = coverRadius(raw);
+    // 預估：最近的鄉鎮代表點的 GMM PGA
+    const estPga = est ? new Map(est.towns.map((ti, i) => [ti, est.pga[i]])) : null;
+    const expected = (lat, lng) => {
+      if (!estPga) return null;
+      let best = null; let bd = Infinity;
+      for (const [ti, g] of estPga) { const c = tw[ti]?.c; if (!c) continue; const d = km(lat, lng, c[0], c[1]); if (d < bd) { bd = d; best = g; } }
+      return best > 0 ? Math.log10(best) : null;
+    };
+    const pts = dropSpikes(raw, radius, expected);
+    if (raw.length > pts.length) radii.push(`濾掉 ${raw.length - pts.length} 個單站突波`);
     radii.push(`P-Alert ${fix(radius)} km`);
     labels.push({ title: 'P-Alert 實測', sub: `${peaks.length} 站`, of: (i) => { const v = idw(tw[i].c[0], tw[i].c[1], pts, radius); return v == null ? null : intensityOf(10 ** v); } });
   }

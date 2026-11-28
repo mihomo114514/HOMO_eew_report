@@ -226,6 +226,8 @@ async function renderShakeCompare(ev, fin, st) {
   if (!host) return;
   const tw = await towns();
   const est = ev.estimate;
+  // 舊記錄（2026-11-28 前）只存了最大的 30 站：不畫實測圖。只有最大的幾站時，雜訊站的大值會被擴散成一大塊假的高震度
+  // （20250417 宜蘭近海：新竹山區一站雜訊冒出一塊 5 弱）
   const peaks = (ev.peaks || []).map(([id, pga]) => ({ s: st.get(id), pga })).filter((x) => x.s && x.pga > 0);
   const cwa = (ev.truth?.stations || []).filter((x) => INTENSITY_ORDER.includes(String(x[2])));
   if (!tw.length || (!est && !peaks.length && !cwa.length)) { host.hidden = true; return; }

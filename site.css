@@ -111,8 +111,8 @@ td.r, th.r { text-align: right; }
 .stat .value { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .stat .sub { font-size: 12px; color: var(--text-muted); }
 /* 震度對比（三張本島鄉鎮色塊圖） */
-/* 每張圖固定窄寬（本島約 1:2，寬 220 高約 380），不跟著畫面拉大；放不下就換行 */
-.shake-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(180px, 100%), 220px)); gap: 12px; margin: 8px 0 16px; }
+/* 每張圖最寬 340 px：內容區 1100 px 剛好放三張（本島約 1:2，高約 620）；不再跟著畫面無限拉大；放不下就換行（手機一張一列，可以放大看） */
+.shake-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 340px)); gap: 12px; margin: 8px 0 16px; }
 .shake-card h2 { font-size: 14px; margin: 0 0 2px; }
 .shake-card .desc { font-size: 12px; color: var(--text-muted); margin: 0 0 6px; }
 .shake-card svg { width: 100%; height: auto; display: block; }
